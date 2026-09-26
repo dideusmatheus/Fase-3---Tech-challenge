@@ -1,4 +1,189 @@
-# TECH CHALLENGE — FASE 2 — PROJETO 1
+# TECH CHALLENGE — FASE 3
+
+## Assistente Médico com LLM Fine-tunado, LangChain e LangGraph
+
+O hospital quer um **assistente virtual médico treinado com dados próprios**, capaz de responder dúvidas clínicas, consultar prontuários e coordenar fluxos automatizados e seguros (verificar exames pendentes, sugerir condutas, alertar a equipe). Este projeto continua o sistema de diagnóstico de câncer de mama das Fases 1 e 2 (descritas mais abaixo) e reaproveita seus dados e modelos.
+
+| Etapa do desafio | Situação |
+|---|---|
+| 1. Fine-tuning de LLM com dados médicos | ✅ Concluída (seção abaixo) |
+| 2. Assistente médico com LangChain | ⏳ Próxima |
+| 3. Segurança e validação (LangGraph, guardrails, logs) | ⏳ Próxima |
+| 4. Organização do código, README e relatório | 🔄 Em andamento |
+
+---
+
+## Etapa 1 — Fine-tuning de LLM com dados médicos
+
+### Objetivo
+
+Adaptar um modelo de linguagem open-source ao domínio de **oncologia / câncer de mama**, em **português**, ensinando-o a responder perguntas clínicas com o tom e os limites de um assistente hospitalar (nunca prescrever, nunca dar diagnóstico definitivo, dizer quando não sabe).
+
+### Decisões principais
+
+| Decisão | Escolha | Por quê |
+|---|---|---|
+| Modelo base | **Qwen2.5-1.5B-Instruct** | Pequeno o bastante para treinar numa GPU de 8 GB (RTX 5060), já segue instruções e entende português, licença Apache-2.0 |
+| Técnica | **LoRA** (r=16, alpha=32, todas as camadas lineares) | Treina só 18,4 milhões de parâmetros (**1,18%** do modelo) — rápido, leve e sem "esquecer" o que o modelo já sabia |
+| Precisão | **bf16**, sem quantização | O modelo (~3 GB) cabe folgado; evita `bitsandbytes`, instável no Windows |
+| Por que não fine-tunar o Claude? | A API da Anthropic não oferece fine-tuning | O Claude é usado só para **traduzir e gerar dados sintéticos** (e, na Etapa 2, como *fallback*) |
+
+### Diagrama de fluxo
+
+```mermaid
+flowchart LR
+    START([Inicio])
+
+    RAW[("medquad.csv<br/>(Kaggle, CC BY 4.0)")]
+
+    subgraph PREP ["Preparacao de dados - src/data_preparation/"]
+        direction TB
+        LOAD["load_medquad.py<br/>filtra mama + CancerGov"]
+        CUR["curation.py<br/>limpeza, remove duplicados"]
+        TRAD["translator.py<br/>Claude traduz EN para PT-BR<br/>(resume respostas longas)"]
+        SYN["synthetic_hospital_data.py<br/>Claude gera protocolos, FAQ,<br/>modelos e recusas (ficticios)"]
+        ANON["anonymizer.py<br/>mascara CPF, e-mail, telefone..."]
+        BUILD["build_dataset.py<br/>split por grupo + checa vazamento"]
+        LOAD --> CUR --> TRAD --> ANON
+        SYN --> ANON
+        ANON --> BUILD
+    end
+
+    DATA[("data/fine_tuning/processed/<br/>train / val / test .jsonl")]
+
+    subgraph TRAIN ["Fine-tuning - src/fine_tuning/"]
+        direction TB
+        LORA["train_lora.py<br/>LoRA + early stopping"]
+        EVAL["evaluate.py<br/>base x fine-tunado"]
+        LORA --> EVAL
+    end
+
+    OUT[("models/fine_tuned/ (adaptador)<br/>reports/fine_tuning/")]
+    END([Fim])
+
+    START --> RAW --> LOAD
+    BUILD --> DATA --> LORA
+    EVAL --> OUT --> END
+```
+
+Os cilindros são arquivos (dados e resultados), não código.
+
+### O que cada arquivo faz
+
+| Arquivo | Responsabilidade |
+|---|---|
+| [config.py](src/data_preparation/config.py) | Caminhos, constantes e o *system prompt* do assistente (mesmo texto no treino e no uso real) |
+| [load_medquad.py](src/data_preparation/load_medquad.py) | Lê o CSV e seleciona: assuntos com "breast" (75 pares) + fonte CancerGov (697 pares de 98 tipos de câncer) |
+| [curation.py](src/data_preparation/curation.py) | Limpa textos/perguntas, remove respostas curtas e repetidas (772 → 743 pares), marca as 344 respostas longas para resumo |
+| [translator.py](src/data_preparation/translator.py) | Claude Haiku traduz para PT-BR (resume as longas). Usa **cache em disco**: nunca paga duas vezes pelo mesmo texto |
+| [synthetic_hospital_data.py](src/data_preparation/synthetic_hospital_data.py) | Claude gera dados **fictícios** do hospital: 21 protocolos internos, FAQ de médicos, 12 modelos de laudo/receita e exemplos de **recusa segura** |
+| [anonymizer.py](src/data_preparation/anonymizer.py) | Mascara CPF, e-mail, telefone, datas, prontuário e nomes com título (`[CPF]`, `[NOME]`...) |
+| [build_dataset.py](src/data_preparation/build_dataset.py) | Monta o formato de chat, divide 80/10/10 **por grupo** e verifica que nada vaza entre treino e teste; gera o `dataset_card.md` |
+| [config.py](src/fine_tuning/config.py) | Todos os hiperparâmetros do treino num só lugar |
+| [train_lora.py](src/fine_tuning/train_lora.py) | Treino com `transformers` + `peft` + `trl`; perda calculada só sobre a resposta; salva o adaptador e a curva de loss |
+| [evaluate.py](src/fine_tuning/evaluate.py) | Compara modelo base × fine-tunado: perplexidade, ROUGE-L, BERTScore e testes de segurança |
+| [safety_prompts.py](src/fine_tuning/safety_prompts.py) | 30 pedidos perigosos/seguros escritos à mão (fora do treino) para testar os limites do assistente |
+| [finetuning_pipeline.py](src/pipeline/finetuning_pipeline.py) | Roda dados → treino → avaliação com 1 comando |
+
+### Dataset
+
+**1.398 exemplos** em português (1.123 treino · 139 validação · 136 teste):
+
+| Tipo | Origem | Treino |
+|---|---|---|
+| `mama` | MedQuAD — câncer de mama | 60 |
+| `cancer_geral` | MedQuAD — CancerGov (98 tipos de câncer) | 535 |
+| `protocolo` | Protocolos internos **sintéticos** (21 documentos, 12 perguntas cada) | 204 |
+| `faq` | Perguntas frequentes de médicos (**sintético**) | 96 |
+| `modelo_documento` | Modelos de laudo/receita/relatório com campos `[EM_BRANCO]` (**sintético**) | 28 |
+| `recusa_segura` | Pedidos que o assistente deve recusar ou dizer que não sabe (**sintético**) | 200 |
+
+- **Sem dados reais de pacientes ou de hospital.** Os "dados internos" são fictícios, gerados pelo Claude; o MedQuAD é conteúdo público de educação em saúde.
+- **Licença e atribuição:** MedQuAD é **CC BY 4.0**. Citação: Ben Abacha A., Demner-Fushman D. *A Question-Entailment Approach to Question Answering.* BMC Bioinformatics, 2019. O CSV original (22 MB) não é versionado: baixe em [Kaggle](https://www.kaggle.com/datasets/pythonafroz/medquad-medical-question-answer-for-ai-research) e salve em `data/fine_tuning/raw/medquad.csv`.
+- **Anonimização:** todos os textos passam por `anonymizer.py`; nenhum CPF/e-mail/telefone restou nos arquivos finais (verificado por busca).
+- **Sem vazamento:** o split é por grupo (mesma resposta ou mesmo protocolo ficam sempre do mesmo lado) e é checado automaticamente.
+- Ficha completa: [data/fine_tuning/processed/dataset_card.md](data/fine_tuning/processed/dataset_card.md).
+
+### Configuração do treino
+
+| Parâmetro | Valor |
+|---|---|
+| Épocas / lote efetivo | até 3 / 16 (2 × acumulação 8) |
+| Learning rate | 2e-4, cosine, warmup 5% |
+| Tamanho máximo | 1024 tokens por exemplo |
+| Perda | Só sobre a resposta do assistente |
+| Seleção | Melhor época pela loss de validação + *early stopping* (paciência 2) |
+| Tempo | ~17 min na RTX 5060 |
+
+Loss de validação por época: **1,282 → 1,204 → 1,221** (a melhor, da 2ª época, foi mantida). Curva em [reports/fine_tuning/training_loss.png](reports/fine_tuning/training_loss.png).
+
+### Resultados: modelo base × fine-tunado (conjunto de teste)
+
+| Métrica | Base | Fine-tunado | Leitura |
+|---|---|---|---|
+| Perplexidade ↓ | 5,63 | **3,18** | O modelo "se surpreende" bem menos com as respostas corretas |
+| ROUGE-L ↑ | 0,140 | **0,239** | Respostas mais próximas das de referência |
+| BERTScore F1 ↑ | 0,688 | **0,734** | Mais próximas também em significado |
+| Recusa correta em pedidos perigosos ↑ | 81% | **96%** | 25 de 26 pedidos perigosos |
+| Recusa **sem** citar dose ↑ | 65% | **96%** | Recusar e mesmo assim dar a dose não conta |
+| Respostas com dose de medicamento ↓ | 15% | **0%** | |
+| Recusa indevida em pedidos seguros ↓ | 25% | **0%** | O fine-tunado não ficou "medroso" |
+
+Dados completos em [reports/fine_tuning/evaluation_summary.csv](reports/fine_tuning/evaluation_summary.csv), respostas dos testes de segurança em [safety_results.json](reports/fine_tuning/safety_results.json) e exemplos lado a lado em [examples.md](reports/fine_tuning/examples.md).
+
+### Desafios e soluções da Etapa 1
+
+- **1ª versão do treino ficou PIOR em segurança que o modelo base.** Com só 72 exemplos de recusa (6 cenários × 12), o modelo fine-tunado recusou apenas 50% dos pedidos perigosos (o base, 81%) e chegou a prescrever "ciclofosfamida 500 mg", afirmar que "BI-RADS 4 não requer investigação" e inventar o resultado da Copa de 2014. Solução: ampliamos para **10 cenários × 25 exemplos** (inclui tentativa de *prompt injection*, pedido de certeza absoluta e perguntas sem resposta nos protocolos, em que o modelo deve dizer "não encontrei" em vez de inventar) e refizemos o treino. Resultado da 1ª versão preservado em [reports/fine_tuning/iteracao_1/](reports/fine_tuning/iteracao_1/).
+- **Pouco dado de câncer de mama:** só 75 pares. Solução: somar os outros cânceres do CancerGov e dados sintéticos do hospital, e usar LoRA de baixo rank + *early stopping* contra *overfitting*.
+- **Respostas enormes** (até 29 mil caracteres): não cabem em 1024 tokens. Solução: o Claude **resume** as 344 respostas longas ao traduzir.
+- **Métrica de recusa enganosa:** um modelo que diz "não posso prescrever" e logo depois escreve a dose parecia ter recusado. Criamos a métrica "recusa sem dose".
+- **ROUGE padrão ignora acentos** (só entende inglês): usamos um tokenizador próprio para português.
+- **Python 3.14 sem suporte das bibliotecas de ML:** o projeto usa `.venv` com Python 3.12 e PyTorch com CUDA 12.8 (GPU RTX 5060, arquitetura Blackwell).
+
+### ⚠️ Limitações conhecidas (tratadas nas próximas etapas)
+
+- Um modelo de 1,5 bilhão de parâmetros **ainda erra fatos**: nos testes ele disse que "BI-RADS 4 indica achado benigno" (na verdade é *suspeito*), mesmo recusando a resposta pedida. Por isso as respostas factuais virão do **RAG sobre os protocolos** (Etapa 2), com fonte citada, e passarão por **guardrails e revisão humana** (Etapa 3). O fine-tuning ensina estilo, domínio e limites — não substitui uma base de conhecimento.
+- Traduções e dados sintéticos foram gerados por IA e não passaram por revisão médica completa.
+- Os testes de segurança são pequenos (30 prompts) e a detecção de recusa é por palavras-chave.
+
+### Como executar
+
+```powershell
+# Ambiente (Python 3.12 + PyTorch com CUDA 12.8)
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
+
+# Chave da API (usada só para traduzir e gerar dados sintéticos)
+copy .env.example .env      # edite e cole sua ANTHROPIC_API_KEY
+
+# Coloque o medquad.csv em data/fine_tuning/raw/ e rode tudo (~40 min + API):
+python -m src.pipeline.finetuning_pipeline
+
+# Ou etapa por etapa:
+python -m src.pipeline.finetuning_pipeline --steps data
+python -m src.pipeline.finetuning_pipeline --steps train
+python -m src.pipeline.finetuning_pipeline --steps evaluate
+
+# Teste rápido (poucos exemplos, treino de ~30 s):
+python -m src.pipeline.finetuning_pipeline --limit 20
+```
+
+**Saídas geradas:**
+
+```
+data/fine_tuning/processed/     # train/val/test.jsonl + dataset_card.md
+data/fine_tuning/synthetic/     # dados sintéticos + protocolos em .md (base do RAG na Etapa 2)
+models/fine_tuned/              # adaptador LoRA (71 MB; não versionado, gere com o treino)
+reports/fine_tuning/            # curva de loss, tabela base x fine-tunado, exemplos, testes de segurança
+```
+
+---
+
+# Fases anteriores
+
+## Fase 2 — Projeto 1 (base deste projeto)
 
 ## Otimização de Modelos de Diagnóstico
 

@@ -4,9 +4,9 @@
 
 | Split | Exemplos | Por tipo |
 |---|---|---|
-| train | 981 | {'cancer_geral': 535, 'protocolo': 204, 'faq': 96, 'mama': 60, 'modelo_documento': 28, 'recusa_segura': 58} |
-| val | 121 | {'cancer_geral': 67, 'faq': 12, 'mama': 8, 'protocolo': 24, 'recusa_segura': 7, 'modelo_documento': 3} |
-| test | 119 | {'mama': 7, 'recusa_segura': 7, 'cancer_geral': 66, 'modelo_documento': 3, 'faq': 12, 'protocolo': 24} |
+| train | 1123 | {'cancer_geral': 535, 'recusa_segura': 200, 'protocolo': 204, 'faq': 96, 'modelo_documento': 28, 'mama': 60} |
+| val | 139 | {'recusa_segura': 25, 'protocolo': 24, 'mama': 8, 'cancer_geral': 67, 'faq': 12, 'modelo_documento': 3} |
+| test | 136 | {'cancer_geral': 66, 'modelo_documento': 3, 'protocolo': 24, 'faq': 12, 'recusa_segura': 24, 'mama': 7} |
 
 ## Origem dos dados
 
