@@ -13,3 +13,4 @@ data/fine_tuning/**/smoke/
 data/fine_tuning/synthetic/synthetic_smoke.jsonl
 reports/fine_tuning/smoke/
 data_build.log
+train.log
