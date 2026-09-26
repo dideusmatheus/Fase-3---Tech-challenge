@@ -1,3 +1,15 @@
 venv/
+.venv/
 .env
 __pycache__/
+
+# Fase 3: pesos do modelo treinado, cache de traducao e logs nao vao pro Git
+models/fine_tuned/
+data/fine_tuning/cache/
+logs/
+# CSV original do MedQuAD (22 MB, baixar do Kaggle - veja o README) e testes rapidos
+data/fine_tuning/raw/
+data/fine_tuning/**/smoke/
+data/fine_tuning/synthetic/synthetic_smoke.jsonl
+reports/fine_tuning/smoke/
+data_build.log
