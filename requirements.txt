@@ -11,7 +11,10 @@ python-dotenv
 # --- Fase 3 - Etapa 1 (Fine-tuning) ---
 # ATENCAO: o torch com suporte a GPU (RTX 5060 / CUDA 12.8) e instalado
 # separadamente, ANTES deste arquivo:
-#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+#   pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cu128
+# A versao 2.7.1 esta fixada de proposito: a 2.11 era bloqueada pelo Controle
+# de Aplicativo do Windows (torch\_C.pyd) neste computador.
+torch==2.7.1
 transformers
 datasets
 peft
@@ -20,3 +23,9 @@ accelerate
 evaluate
 rouge-score
 bert-score
+
+# --- Fase 3 - Etapa 2 (Assistente com LangChain) ---
+langchain
+langchain-core
+langchain-huggingface
+sentence-transformers
