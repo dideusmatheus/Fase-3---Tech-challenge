@@ -6,6 +6,64 @@ import os
 ALL_STEPS = ["seed", "index", "ask"]
 
 
+def _tabela_validacao(resultados):
+    """
+    Resumo da validação: compara o que o assistente FEZ com o que DEVERIA
+    fazer (campo "esperado" de cada pergunta). A pergunta avulsa não tem esse
+    campo e fica de fora.
+    """
+    avaliadas = [r for r in resultados if r.get("decisao_correta") is not None]
+    if not avaliadas:
+        return []
+    acertos = sum(r["decisao_correta"] for r in avaliadas)
+    linhas = [
+        f"**Validação das decisões:** {acertos}/{len(avaliadas)} corretas\n",
+        "| Pergunta | Categoria | Esperado | Status | Motivo | Correta |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in avaliadas:
+        linhas.append(
+            f"| {r['id']} | {r['categoria']} | {r['esperado']} | {r['status']} "
+            f"| {r['codigo'] or '-'} | {'✅' if r['decisao_correta'] else '❌'} |"
+        )
+    linhas.append("")
+    return linhas
+
+
+def _linhas_fontes(r):
+    """Explainability: de onde veio a resposta (protocolos e prontuário)."""
+    exp = r["explicacao"]
+    linhas = ["**Fontes (trechos usados no contexto):**"]
+    linhas += [
+        f"- {f['protocolo']} — {f['secao']} (similaridade {f['score']})" for f in r["fontes"]
+    ]
+    if not r["fontes"]:
+        linhas.append("- nenhuma (a pergunta foi bloqueada antes de consultar o modelo)")
+    if exp["prontuario"]:
+        p = exp["prontuario"]
+        linhas.append(f"- Prontuário {p['id']}: {p['exames']} exames e {p['condutas']} condutas no contexto")
+    if r["status"] != "bloqueada_entrada":
+        linhas.append(f"- Resposta cita o protocolo no texto: {'sim' if exp['citou_fonte'] else 'não'}")
+    return linhas
+
+
+def _bloco_pergunta(r):
+    """Trecho do relatório referente a uma pergunta."""
+    motivo = f" ({r['codigo']})" if r["codigo"] else ""
+    linhas = [
+        f"## {r.get('id', '-')} — {r['pergunta']}\n",
+        f"- Paciente: {r['id_prontuario'] or 'nenhum'}",
+        f"- Status: **{r['status']}**{motivo}",
+        f"- ID de auditoria: `{r['request_id']}`",
+        f"\n**Resposta:**\n\n{r['resposta']}\n",
+    ]
+    if r.get("aviso"):
+        linhas.append(f"> {r['aviso']}\n")
+    linhas += _linhas_fontes(r)
+    linhas.append("")
+    return linhas
+
+
 def _salvar_relatorio(resultados, pasta):
     """Grava as respostas em JSON (para máquina) e Markdown (para leitura)."""
     os.makedirs(pasta, exist_ok=True)
@@ -13,15 +71,10 @@ def _salvar_relatorio(resultados, pasta):
         # ensure_ascii=False mantém acentos legíveis no arquivo.
         json.dump(resultados, f, ensure_ascii=False, indent=2)
 
-    linhas = ["# Respostas do assistente médico (Etapa 2)\n"]
+    linhas = ["# Respostas do assistente médico (Etapas 2 e 3)\n"]
+    linhas += _tabela_validacao(resultados)
     for r in resultados:
-        linhas.append(f"## {r.get('id', '-')} — {r['pergunta']}\n")
-        linhas.append(f"- Paciente: {r['id_prontuario'] or 'nenhum'}")
-        linhas.append(f"\n**Resposta:**\n\n{r['resposta']}\n")
-        linhas.append("**Fontes (trechos usados no contexto):**")
-        for f in r["fontes"]:
-            linhas.append(f"- {f['protocolo']} — {f['secao']} (similaridade {f['score']})")
-        linhas.append("")
+        linhas += _bloco_pergunta(r)
     with open(f"{pasta}/respostas.md", "w", encoding="utf-8") as f:
         f.write("\n".join(linhas))
 
@@ -63,8 +116,9 @@ def run_assistant_pipeline(steps=None, limit=None, pergunta=None, paciente=None)
         print("\n" + "=" * 55)
         print("🩺 ETAPA 3/3 — PERGUNTAS AO ASSISTENTE")
         print("=" * 55)
-        from src.assistant.chain import montar_chain, responder
-        from src.assistant.config import QUESTIONS_PATH, REPORTS_DIR
+        from src.assistant.assistente import responder_seguro
+        from src.assistant.chain import montar_chain
+        from src.assistant.config import AUDIT_PATH, QUESTIONS_PATH, REPORTS_DIR
 
         if pergunta:
             # Modo avulso: uma pergunta digitada no terminal.
@@ -79,14 +133,25 @@ def run_assistant_pipeline(steps=None, limit=None, pergunta=None, paciente=None)
         resultados = []
         for item in itens:
             print(f"\n[{item['id']}] {item['pergunta']}")
-            r = responder(chain, item["pergunta"], item.get("id_prontuario"))
+            # responder_seguro aplica guardrails, explicação e auditoria.
+            r = responder_seguro(chain, item["pergunta"], item.get("id_prontuario"))
             r["id"] = item["id"]
+            r["categoria"] = item.get("categoria", "avulsa")
+            # "esperado" diz o que o assistente DEVERIA fazer (responder ou
+            # bloquear). A decisão é correta quando os dois batem.
+            r["esperado"] = item.get("esperado")
+            if r["esperado"] is None:
+                r["decisao_correta"] = None
+            else:
+                r["decisao_correta"] = (r["status"] == "respondida") == (r["esperado"] == "responder")
             resultados.append(r)
-            print(f"→ {r['resposta'][:300]}")
-            print("  fontes:", ", ".join(f"{x['protocolo']}" for x in r["fontes"]))
+            print(f"→ [{r['status']}] {r['resposta'][:300]}")
+            if r["fontes"]:
+                print("  fontes:", ", ".join(f"{x['protocolo']}" for x in r["fontes"]))
 
         _salvar_relatorio(resultados, REPORTS_DIR)
         print(f"\n💾 Relatório salvo em {REPORTS_DIR}/respostas.md")
+        print(f"🧾 Auditoria registrada em {AUDIT_PATH}")
 
 
 if __name__ == "__main__":
