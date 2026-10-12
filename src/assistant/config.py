@@ -17,6 +17,19 @@ REPORTS_DIR = "reports/assistant"                      # onde o pipe grava as re
 LOGS_DIR = "logs/assistant"
 AUDIT_PATH = f"{LOGS_DIR}/auditoria.jsonl"             # 1 evento JSON por linha
 
+# ── Fluxo automatizado (LangGraph) ────────────────────────────────────
+# "Fila" de alertas para a equipe médica. Simulamos o envio gravando em
+# arquivo; num hospital real aqui entraria e-mail, sistema de mensagens etc.
+ALERTS_PATH = f"{LOGS_DIR}/alertas.jsonl"
+# Pergunta que o fluxo faz ao assistente para cada paciente. {paciente} é
+# trocado pelo diagnóstico dela. Isso importa: o RAG busca pelo TEXTO da
+# pergunta, e sem o diagnóstico ele trazia um protocolo qualquer (nos testes,
+# o de recuperação pós-procedimento para todas as pacientes).
+PERGUNTA_FLUXO = (
+    "Quais as próximas condutas recomendadas pelos protocolos do hospital "
+    "para uma paciente com {paciente}?"
+)
+
 # ── RAG (busca nos protocolos) ────────────────────────────────────────
 # Modelo de embeddings multilíngue: transforma texto em vetor de números.
 # Textos com significado parecido ficam com vetores parecidos, e é assim

@@ -36,6 +36,18 @@ def buscar_paciente(id_prontuario):
     return dict(linha) if linha else None
 
 
+def listar_ids():
+    """Ids de todos os prontuários (o fluxo automatizado percorre esta lista)."""
+    con = _conectar()
+    try:
+        linhas = con.execute(
+            "SELECT id_prontuario FROM pacientes ORDER BY id_prontuario"
+        ).fetchall()
+    finally:
+        con.close()
+    return [l["id_prontuario"] for l in linhas]
+
+
 def listar_exames(id_prontuario, status=None):
     """Lista exames do paciente; se 'status' for informado, filtra por ele."""
     sql = "SELECT tipo, data_pedido, status, resultado FROM exames WHERE id_prontuario = ?"
