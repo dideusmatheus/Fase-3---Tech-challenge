@@ -1,0 +1,128 @@
+[
+  {
+    "id_prontuario": "PAC-0001",
+    "status": "concluido",
+    "exames_pendentes": [
+      {
+        "tipo": "Ressonância magnética de mamas",
+        "data_pedido": "2025-03-02",
+        "status": "pendente",
+        "resultado": null
+      },
+      {
+        "tipo": "Ecocardiograma",
+        "data_pedido": "2025-03-05",
+        "status": "pendente",
+        "resultado": null
+      }
+    ],
+    "sugestao": {
+      "status": "respondida",
+      "codigo": null,
+      "resposta": "A paciente com diagnóstico de Carcinoma ductal invasivo de mama (estadio IIA) merece discussão multidisciplinar sobre indicação cirúrgica seguida de quimioterapia adjuvante, conforme protocolo interno PROT-05. O protocolo aplica-se a todos os pacientes com câncer de mama invasivo, independente da idade ou comorbidades, e recomenda classificação BI-RADS conforme protocolo interno PROT-02.",
+      "request_id": "313e4ac4"
+    },
+    "alertas": [
+      {
+        "tipo": "exames_pendentes",
+        "mensagem": "2 exame(s) pendente(s): Ressonância magnética de mamas (pedido em 2025-03-02); Ecocardiograma (pedido em 2025-03-05)."
+      }
+    ]
+  },
+  {
+    "id_prontuario": "PAC-0002",
+    "status": "concluido",
+    "exames_pendentes": [],
+    "sugestao": {
+      "status": "respondida",
+      "codigo": null,
+      "resposta": "A paciente com Carcinoma ductal in situ (estadio 0) deve ser encaminhada ao mastologista para planejamento cirúrgico imediato, conforme protocolo interno. O protocolo indica que a biópsia por agulha grossa (concluida) foi CDIS grau intermediário, indicando que a avaliação de sentinela e possíveis linfonodos são necessárias. A paciente deve ser informada sobre o planejamento cirúrgico e oportunidades de resgate de células tumorais para análise molecular.",
+      "request_id": "dc552d2b"
+    },
+    "alertas": []
+  },
+  {
+    "id_prontuario": "PAC-0003",
+    "status": "concluido",
+    "exames_pendentes": [
+      {
+        "tipo": "Densitometria óssea",
+        "data_pedido": "2025-02-20",
+        "status": "pendente",
+        "resultado": null
+      }
+    ],
+    "sugestao": {
+      "status": "respondida",
+      "codigo": null,
+      "resposta": "O protocolo PROT-06 indica que pacientes com carcinoma lobular invasivo (RH+ / HER2-) devem ser avaliados quanto ao subtipo molecular (RE, RP, HER2, Ki-67) e considerados para tratamento anti-HER2 conforme protocolo interno. O protocolo PROT-12 recomenda que pacientes com tumores sólidos HER2-positivos confirmados por imunoistoquímica (3+) ou hibridização in situ (HER2/CEP17 ≥ 2,0) recebam terapia anti-HER2 conforme protocolo de diagnóstico institucional. O protocolo PROT-02 define categorias BI-RADS e condutas para cada categoria, incluindo pacientes em rastreamento de câncer de mama.",
+      "request_id": "2942d281"
+    },
+    "alertas": [
+      {
+        "tipo": "exames_pendentes",
+        "mensagem": "1 exame(s) pendente(s): Densitometria óssea (pedido em 2025-02-20)."
+      }
+    ]
+  },
+  {
+    "id_prontuario": "PAC-0004",
+    "status": "concluido",
+    "exames_pendentes": [
+      {
+        "tipo": "Hemograma",
+        "data_pedido": "2025-03-01",
+        "status": "pendente",
+        "resultado": null
+      }
+    ],
+    "sugestao": {
+      "status": "respondida",
+      "codigo": null,
+      "resposta": "Para essa paciente, as próximas condutas recomendadas são: iniciar esquema neoadjuvante conforme decisão do oncologista (protocolo PROT-05); realizar biópsia do linfonodo sentinela conforme PROT-08; e realizar investigação clínica inicial completa conforme PROT-03.",
+      "request_id": "59c6d2fc"
+    },
+    "alertas": [
+      {
+        "tipo": "exames_pendentes",
+        "mensagem": "1 exame(s) pendente(s): Hemograma (pedido em 2025-03-01)."
+      }
+    ]
+  },
+  {
+    "id_prontuario": "PAC-0005",
+    "status": "concluido",
+    "exames_pendentes": [],
+    "sugestao": {
+      "status": "respondida",
+      "codigo": null,
+      "resposta": "Os protocolos sugerem que a paciente com Carcinoma de mama HER2+ (estadio IIA) deve receber anti-HER2 + quimioterapia conforme prescrição do médico responsável, com monitorização cardíaca regular e avaliação de sintomas de insuficiência cardíaca conforme protocolo interno.",
+      "request_id": "87add761"
+    },
+    "alertas": []
+  },
+  {
+    "id_prontuario": "PAC-0006",
+    "status": "concluido",
+    "exames_pendentes": [
+      {
+        "tipo": "Biópsia guiada por ultrassom",
+        "data_pedido": "2025-03-04",
+        "status": "pendente",
+        "resultado": null
+      }
+    ],
+    "sugestao": {
+      "status": "respondida",
+      "codigo": null,
+      "resposta": "O protocolo PROT-03 indica que pacientes com BI-RADS 4 ou 5 devem ser submetidos a biopsia para confirmação histológica. A biopsia é realizada sob orientação ultrassonográfica ou estereotáxica conforme características do nódulo. A decisão final sobre a investigação adicional depende do histórico individual do paciente e dos achados clínicos.",
+      "request_id": "debb0d4e"
+    },
+    "alertas": [
+      {
+        "tipo": "exames_pendentes",
+        "mensagem": "1 exame(s) pendente(s): Biópsia guiada por ultrassom (pedido em 2025-03-04)."
+      }
+    ]
+  }
+]
