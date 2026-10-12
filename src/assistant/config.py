@@ -12,6 +12,10 @@ ASSISTANT_DATA_DIR = "data/assistant"
 DB_PATH = f"{ASSISTANT_DATA_DIR}/prontuarios.db"      # banco SQLite com pacientes fictícios
 QUESTIONS_PATH = f"{ASSISTANT_DATA_DIR}/perguntas.json"  # perguntas fixas do pipe
 REPORTS_DIR = "reports/assistant"                      # onde o pipe grava as respostas
+# Log de auditoria (Etapa 3). A pasta logs/ está no .gitignore de propósito:
+# o log guarda as perguntas dos médicos, que não devem ir para o repositório.
+LOGS_DIR = "logs/assistant"
+AUDIT_PATH = f"{LOGS_DIR}/auditoria.jsonl"             # 1 evento JSON por linha
 
 # ── RAG (busca nos protocolos) ────────────────────────────────────────
 # Modelo de embeddings multilíngue: transforma texto em vetor de números.
@@ -24,6 +28,13 @@ EMBEDDING_MODEL = "BAAI/bge-m3"
 TOP_K = 3                 # quantos trechos de protocolo entram no prompt
 MAX_CHUNK_CHARS = 1200   # trecho maior que isso é cortado (o treino foi com 1024 tokens)
 MIN_CHUNK_CHARS = 120    # seção menor que isso (só título) é descartada
+
+# ── Segurança (Etapa 3) ───────────────────────────────────────────────
+# Similaridade mínima do melhor trecho para a pergunta contar como "assunto do
+# hospital". Medido nas nossas perguntas: as legítimas ficaram entre 0,54 e
+# 0,71 e as fora de escopo (bolo, Copa do Mundo, poema...) entre 0,27 e 0,40.
+# 0,45 fica no meio, com folga dos dois lados.
+LIMIAR_ESCOPO = 0.45
 
 # ── Geração da resposta ───────────────────────────────────────────────
 # Mesmos valores da avaliação da Etapa 1, para o comportamento ser o mesmo.
