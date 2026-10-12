@@ -28,4 +28,5 @@ bert-score
 langchain
 langchain-core
 langchain-huggingface
+langgraph
 sentence-transformers
