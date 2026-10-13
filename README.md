@@ -45,7 +45,6 @@ Toda decisão (liberada ou bloqueada) é registrada na auditoria (setas pontilha
 | 1. Fine-tuning de LLM com dados médicos | ✅ Concluída (seção abaixo) |
 | 2. Assistente médico com LangChain (inclui o fluxo automatizado com LangGraph) | ✅ Concluída (seção abaixo) |
 | 3. Segurança e validação (guardrails, auditoria, explainability) | ✅ Concluída (seção abaixo) |
-| 4. Organização do código, README e relatório | 🔄 Em andamento |
 
 ---
 
